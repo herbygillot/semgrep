@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any
 from typing import Dict
@@ -6,6 +7,8 @@ from typing import List
 from typing import Optional
 from typing import Set
 from typing import Tuple
+
+logger = logging.getLogger(__name__)
 
 from semgrep.constants import RCE_RULE_FLAG
 from semgrep.error import NEED_ARBITRARY_CODE_EXEC_EXIT_CODE
@@ -20,9 +23,7 @@ from semgrep.semgrep_types import pattern_name_for_operator
 from semgrep.semgrep_types import pattern_names_for_operator
 from semgrep.semgrep_types import PatternId
 from semgrep.semgrep_types import Range
-from semgrep.util import debug_print
 from semgrep.util import flatten
-from semgrep.util import print_stderr
 
 
 def _evaluate_single_expression(
@@ -45,7 +46,7 @@ def _evaluate_single_expression(
         # remove all ranges that DO equal the ranges for this pattern
         # difference_update = Remove all elements of another set from this set.
         output_ranges = ranges_left.difference(results_for_pattern)
-        debug_print(f"after filter `{expression.operator}`: {output_ranges}")
+        logger.debug(f"after filter `{expression.operator}`: {output_ranges}")
         steps_for_debugging.append(
             {
                 "filter": pattern_name_for_operator(expression.operator),
@@ -65,7 +66,7 @@ def _evaluate_single_expression(
                 if is_enclosed:
                     output_ranges.add(arange)
                     break  # found a match, no need to keep going
-        debug_print(f"after filter `{expression.operator}`: {output_ranges}")
+        logger.debug(f"after filter `{expression.operator}`: {output_ranges}")
         steps_for_debugging.append(
             {
                 "filter": pattern_name_for_operator(expression.operator),
@@ -82,7 +83,7 @@ def _evaluate_single_expression(
                 if keep_inside_this_range.is_enclosing_or_eq(arange):
                     output_ranges.remove(arange)
                     break
-        debug_print(f"after filter `{expression.operator}`: {output_ranges}")
+        logger.debug(f"after filter `{expression.operator}`: {output_ranges}")
         steps_for_debugging.append(
             {
                 "filter": pattern_name_for_operator(expression.operator),
@@ -105,14 +106,14 @@ def _evaluate_single_expression(
             # Only need to check where-python clause if the range hasn't already been filtered
 
             if pattern_match.range in ranges_left:
-                debug_print(
+                logger.debug(
                     f"WHERE is {expression.operand}, metavars: {pattern_match.metavars}"
                 )
                 if _where_python_statement_matches(
                     expression.operand, pattern_match.metavars
                 ):
                     output_ranges.add(pattern_match.range)
-        debug_print(f"after filter `{expression.operator}`: {output_ranges}")
+        logger.debug(f"after filter `{expression.operator}`: {output_ranges}")
         steps_for_debugging.append(
             {
                 "filter": pattern_name_for_operator(expression.operator),
@@ -124,7 +125,7 @@ def _evaluate_single_expression(
     elif expression.operator == OPERATORS.REGEX:
         # remove all ranges that don't equal the ranges for this pattern
         output_ranges = ranges_left.intersection(results_for_pattern)
-        debug_print(f"after filter `{expression.operator}`: {output_ranges}")
+        logger.debug(f"after filter `{expression.operator}`: {output_ranges}")
         steps_for_debugging.append(
             {
                 "filter": pattern_name_for_operator(expression.operator),
@@ -157,7 +158,7 @@ def _where_python_statement_matches(
         # fmt: on
         result = scope[RETURN_VAR]  # type: ignore
     except Exception as ex:
-        print_stderr(
+        logger.error(
             f"error evaluating a where-python expression: `{where_expression}`: {ex}"
         )
 
@@ -206,7 +207,7 @@ def evaluate(
             },
         }
     ]
-    debug_print(str(pattern_ids_to_pattern_matches))
+    logger.debug(str(pattern_ids_to_pattern_matches))
     valid_ranges_to_output = evaluate_expression(
         rule.expression,
         pattern_ids_to_pattern_matches,
@@ -215,8 +216,8 @@ def evaluate(
     )
 
     # only output matches which are inside these offsets!
-    debug_print(f"compiled result {valid_ranges_to_output}")
-    debug_print("-" * 80)
+    logger.debug(f"compiled result {valid_ranges_to_output}")
+    logger.debug("-" * 80)
 
     for pattern_match in pattern_matches:
         if pattern_match.range in valid_ranges_to_output:
@@ -313,7 +314,7 @@ def _evaluate_expression(
                 )
                 ranges_left.intersection_update(remainining_ranges)
 
-        debug_print(f"after filter `{expression.operator}`: {ranges_left}")
+        logger.debug(f"after filter `{expression.operator}`: {ranges_left}")
         steps_for_debugging.append(
             {
                 "filter": f"{pattern_name_for_operator(expression.operator)}",
