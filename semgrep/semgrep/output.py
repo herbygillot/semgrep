@@ -294,7 +294,9 @@ class OutputHandler:
         the exit code of the program.
         """
         if self.has_output:
-            output = self.build_output(self.settings.output_destination is None)
+            output = self.build_output(
+                self.settings.output_destination is None and self.stdout.isatty()
+            )
             if not self.settings.quiet and output:
                 print(output, file=self.stdout)
 
